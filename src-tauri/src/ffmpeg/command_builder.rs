@@ -25,15 +25,29 @@ pub fn build_segment_args(
         "-hide_banner".to_string(),
         "-v".to_string(),
         "error".to_string(),
-        "-ss".to_string(),
-        format_seconds(start),
-        "-i".to_string(),
-        input.to_string_lossy().to_string(),
+    ];
+
+    match mode {
+        ExportMode::Fast => {
+            args.push("-ss".to_string());
+            args.push(format_seconds(start));
+            args.push("-i".to_string());
+            args.push(input.to_string_lossy().to_string());
+        }
+        ExportMode::Accurate => {
+            args.push("-i".to_string());
+            args.push(input.to_string_lossy().to_string());
+            args.push("-ss".to_string());
+            args.push(format_seconds(start));
+        }
+    }
+
+    args.extend([
         "-t".to_string(),
         format_seconds(duration),
         "-map".to_string(),
         "0".to_string(),
-    ];
+    ]);
 
     match mode {
         ExportMode::Fast => {

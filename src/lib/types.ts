@@ -18,6 +18,8 @@ export type MediaInfo = {
   path: string;
   filename: string;
   duration: number;
+  /** First video packet timestamp (seconds). HTML5 currentTime is relative to this. */
+  videoStartTime: number;
   sizeBytes: number;
   width: number | null;
   height: number | null;

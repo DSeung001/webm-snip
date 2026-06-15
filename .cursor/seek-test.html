@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<body>
+<video id="v" controls width="640" src="file:///Users/jiseunglyeol/Downloads/drive-download-20260615T053625Z-3-001/1%EA%B0%95.webm"></video>
+<pre id="out"></pre>
+<script>
+const v = document.getElementById('v');
+const out = document.getElementById('out');
+async function testSeek(t) {
+  await new Promise((resolve) => {
+    const done = () => { v.removeEventListener('seeked', done); resolve(); };
+    v.addEventListener('seeked', done);
+    v.currentTime = t;
+  });
+  return { requested: t, actual: v.currentTime, duration: v.duration };
+}
+v.addEventListener('loadedmetadata', async () => {
+  const results = [];
+  for (const t of [520, 520.635, 580]) {
+    results.push(await testSeek(t));
+  }
+  out.textContent = JSON.stringify(results, null, 2);
+});
+</script>
+</body>
+</html>

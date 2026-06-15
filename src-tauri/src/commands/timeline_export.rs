@@ -42,7 +42,8 @@ pub fn export_timeline(request: TimelineExportRequest) -> AppResult<ExportResult
             };
 
             let media = probe_media(input.to_string_lossy().to_string())?;
-            ensure_cut_range(segment.start_time, segment.end_time, Some(media.duration))?;
+            let media_end = media.video_start_time + media.duration;
+            ensure_cut_range(segment.start_time, segment.end_time, Some(media_end))?;
 
             let duration = segment.end_time - segment.start_time;
             let segment_output = temp_dir.join(format!("segment_{index:04}.webm"));

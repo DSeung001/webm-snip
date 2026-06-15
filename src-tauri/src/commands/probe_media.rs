@@ -61,6 +61,7 @@ pub fn media_info_from_probe(input: &PathBuf, json: Value) -> AppResult<MediaInf
     let mut height = None;
     let mut fps = None;
     let mut stream_duration = None;
+    let mut video_start_time = 0.0_f64;
 
     for stream in streams {
         if stream_duration.is_none() {
@@ -72,6 +73,11 @@ pub fn media_info_from_probe(input: &PathBuf, json: Value) -> AppResult<MediaInf
 
         match stream.get("codec_type").and_then(Value::as_str) {
             Some("video") if video_codec.is_none() => {
+                video_start_time = stream
+                    .get("start_time")
+                    .and_then(Value::as_str)
+                    .and_then(|value| value.parse::<f64>().ok())
+                    .unwrap_or(0.0);
                 video_codec = stream
                     .get("codec_name")
                     .and_then(Value::as_str)
@@ -111,6 +117,7 @@ pub fn media_info_from_probe(input: &PathBuf, json: Value) -> AppResult<MediaInf
             .unwrap_or("video.webm")
             .to_string(),
         duration,
+        video_start_time,
         size_bytes: metadata.len(),
         width,
         height,

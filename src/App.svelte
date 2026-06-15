@@ -3,7 +3,7 @@
   import { onMount, tick } from 'svelte';
   import ErrorBanner from './components/ErrorBanner.svelte';
   import VideoPreview from './components/VideoPreview.svelte';
-  import { clampTime, formatTime } from './lib/time';
+  import { clampTime, formatTime, toMediaTime, toPresentationTime } from './lib/time';
   import {
     chooseSavePath,
     exportTimeline,
@@ -28,6 +28,8 @@
   };
 
   const MIN_CLIP_SECONDS = 0.08;
+  const MIN_TIMELINE_ZOOM = 1;
+  const MAX_TIMELINE_ZOOM = 8;
 
   let status: AppStatus = 'idle';
   let files: MediaInfo[] = [];
@@ -35,7 +37,7 @@
   let activeIndex = 0;
   let selectedClipId: number | null = null;
   let videoSrc: string | null = null;
-  let currentTime = 0;
+  let currentMediaTime = 0;
   let videoDuration = 0;
   let outputPath: string | null = null;
   let exportResult: ExportResult | null = null;
@@ -46,6 +48,8 @@
   let nextClipId = 1;
   let pendingSeekTime: number | null = null;
   let isScrubbingTimeline = false;
+  let timelineZoom = 1;
+  let trackViewport: HTMLDivElement | undefined;
   let trackStrip: HTMLDivElement | undefined;
   let videoRef: VideoPreview | undefined;
 
@@ -58,8 +62,9 @@
   $: canEdit = selectedClip !== null && status !== 'exporting';
   $: canScrub = clips.length > 0 && status !== 'exporting';
   $: canExport = clips.length > 0 && status !== 'exporting';
+  $: presentationTime = activeFile ? toPresentationTime(currentMediaTime, activeFile.videoStartTime) : 0;
   $: playheadTime = selectedClip
-    ? timelineTimeForClip(selectedClip, currentTime)
+    ? timelineTimeForClip(selectedClip, currentMediaTime)
     : 0;
   $: playheadPercent = totalDuration > 0 ? clampPercent((playheadTime / totalDuration) * 100) : 0;
 
@@ -122,17 +127,59 @@
     return null;
   }
 
+  function sourceTimeFromPlayheadTime(time: number): number | null {
+    return findTimelineTarget(time)?.localTime ?? null;
+  }
+
+  function clipSegmentStyle(clip: Clip): string {
+    if (totalDuration <= 0) return 'left:0;width:0';
+
+    const left = (clipOffset(clip.id) / totalDuration) * 100;
+    const width = (clipDuration(clip) / totalDuration) * 100;
+    return `left:${left}%;width:${width}%`;
+  }
+
   function clipName(clip: Clip): string {
     const file = files[clip.inputIndex];
     return file ? file.filename : `Clip ${clip.id}`;
   }
 
   function clipTitle(clip: Clip): string {
-    return `${clipName(clip)} | ${formatTime(clip.startTime)} - ${formatTime(clip.endTime)}`;
+    const file = files[clip.inputIndex];
+    const start = file ? toPresentationTime(clip.startTime, file.videoStartTime) : clip.startTime;
+    const end = file ? toPresentationTime(clip.endTime, file.videoStartTime) : clip.endTime;
+    return `${clipName(clip)} | ${formatTime(start)} - ${formatTime(end)}`;
   }
 
   function clampPercent(value: number): number {
     return Math.min(100, Math.max(0, value));
+  }
+
+  function zoomTimelineIn() {
+    timelineZoom = Math.min(MAX_TIMELINE_ZOOM, timelineZoom * 1.5);
+  }
+
+  function zoomTimelineOut() {
+    timelineZoom = Math.max(MIN_TIMELINE_ZOOM, timelineZoom / 1.5);
+  }
+
+  function scrollPlayheadIntoView() {
+    if (!trackViewport || !trackStrip || timelineZoom <= MIN_TIMELINE_ZOOM || totalDuration <= 0) {
+      return;
+    }
+
+    const viewportWidth = trackViewport.clientWidth;
+    const stripWidth = trackStrip.clientWidth;
+    const playheadX = (playheadPercent / 100) * stripWidth;
+    const margin = 24;
+    const visibleStart = trackViewport.scrollLeft;
+    const visibleEnd = visibleStart + viewportWidth;
+
+    if (playheadX < visibleStart + margin) {
+      trackViewport.scrollLeft = Math.max(0, playheadX - margin);
+    } else if (playheadX > visibleEnd - margin) {
+      trackViewport.scrollLeft = playheadX - viewportWidth + margin;
+    }
   }
 
   function isTauriRuntime(): boolean {
@@ -146,7 +193,7 @@
     activeIndex = 0;
     selectedClipId = null;
     videoSrc = null;
-    currentTime = 0;
+    currentMediaTime = 0;
     videoDuration = 0;
     outputPath = null;
     exportResult = null;
@@ -179,7 +226,7 @@
 
       const fileOffset = append ? files.length : 0;
       const newClips = loadedFiles.map((file, index) =>
-        createClip(fileOffset + index, 0, file.duration)
+        createClip(fileOffset + index, file.videoStartTime, file.videoStartTime + file.duration)
       );
 
       files = append ? [...files, ...loadedFiles] : loadedFiles;
@@ -228,8 +275,8 @@
     activeIndex = index;
     videoDuration = file.duration;
     videoSrc = toVideoSrc(file.path);
-    currentTime = 0;
-    pendingSeekTime = 0;
+    currentMediaTime = file.videoStartTime;
+    pendingSeekTime = file.videoStartTime;
   }
 
   async function showClip(clip: Clip, seekTime: number) {
@@ -243,45 +290,52 @@
     activeIndex = clip.inputIndex;
     videoDuration = file.duration;
     videoSrc = toVideoSrc(file.path);
-    currentTime = safeTime;
+    currentMediaTime = safeTime;
     pendingSeekTime = safeTime;
 
     await tick();
-    videoRef?.seek(safeTime);
+    videoRef?.seek(toPresentationTime(safeTime, file.videoStartTime));
 
     if (!changedFile) {
       pendingSeekTime = null;
     }
+
+    await tick();
+    scrollPlayheadIntoView();
   }
 
   function handlePreviewLoaded(event: CustomEvent<{ duration: number }>) {
     videoDuration = event.detail.duration;
 
-    if (pendingSeekTime !== null) {
-      const seekTime = pendingSeekTime;
+    if (pendingSeekTime !== null && activeFile) {
+      const seekTime = toPresentationTime(pendingSeekTime, activeFile.videoStartTime);
       pendingSeekTime = null;
       void tick().then(() => videoRef?.seek(seekTime));
     }
   }
 
   function seekPreview(time: number) {
-    const duration = activeFile?.duration ?? videoDuration;
-    videoRef?.seek(clampTime(time, duration));
+    const file = activeFile;
+    const duration = file?.duration ?? videoDuration;
+    const presentationTime = file ? toPresentationTime(time, file.videoStartTime) : time;
+    videoRef?.seek(clampTime(presentationTime, duration));
   }
 
   function seekInsideSelectedClip(time: number) {
-    if (!selectedClip) {
+    if (!selectedClip || !selectedClipFile) {
       seekPreview(time);
       return;
     }
 
-    videoRef?.seek(clampClipTime(selectedClip, time));
+    const safeMediaTime = clampClipTime(selectedClip, time);
+    currentMediaTime = safeMediaTime;
+    videoRef?.seek(toPresentationTime(safeMediaTime, selectedClipFile.videoStartTime));
   }
 
   function handlePlayheadInput(event: Event) {
     const value = Number((event.currentTarget as HTMLInputElement).value);
-    if (Number.isFinite(value)) {
-      seekInsideSelectedClip(value);
+    if (Number.isFinite(value) && selectedClipFile) {
+      seekInsideSelectedClip(toMediaTime(value, selectedClipFile.videoStartTime));
     }
   }
 
@@ -302,6 +356,7 @@
   async function seekTimeline(time: number) {
     const target = findTimelineTarget(time);
     if (!target) return;
+
     await showClip(target.clip, target.localTime);
   }
 
@@ -365,12 +420,16 @@
       return;
     }
 
-    if (selectedClip) {
-      const startTime =
-        currentTime >= selectedClip.startTime && currentTime < selectedClip.endTime - MIN_CLIP_SECONDS
-          ? currentTime
+    if (selectedClip && selectedClipFile) {
+      const startMediaTime =
+        currentMediaTime >= selectedClip.startTime &&
+        currentMediaTime < selectedClip.endTime - MIN_CLIP_SECONDS
+          ? currentMediaTime
           : selectedClip.startTime;
-      videoRef?.playSelectedRange(startTime, selectedClip.endTime);
+      videoRef?.playSelectedRange(
+        toPresentationTime(startMediaTime, selectedClipFile.videoStartTime),
+        toPresentationTime(selectedClip.endTime, selectedClipFile.videoStartTime)
+      );
     } else {
       videoRef?.togglePlay();
     }
@@ -382,7 +441,7 @@
       return;
     }
 
-    const splitTime = currentTime;
+    const splitTime = sourceTimeFromPlayheadTime(playheadTime) ?? currentMediaTime;
     const isInside =
       splitTime > selectedClip.startTime + MIN_CLIP_SECONDS &&
       splitTime < selectedClip.endTime - MIN_CLIP_SECONDS;
@@ -415,7 +474,7 @@
       await showClip(nextClip, nextClip.startTime);
     } else {
       selectedClipId = null;
-      currentTime = 0;
+      currentMediaTime = 0;
     }
   }
 
@@ -585,11 +644,15 @@
       <section class="main-column">
         <VideoPreview
           bind:this={videoRef}
-          bind:currentTime
+          currentTime={presentationTime}
           duration={videoDuration}
+          ignoreTimeUpdates={pendingSeekTime !== null}
           src={videoSrc}
           on:loaded={handlePreviewLoaded}
-          on:time={(event) => (currentTime = event.detail.currentTime)}
+          on:time={(event) => {
+            if (pendingSeekTime !== null || !activeFile) return;
+            currentMediaTime = toMediaTime(event.detail.currentTime, activeFile.videoStartTime);
+          }}
           on:playstate={(event) => (isPlaying = event.detail.isPlaying)}
         />
 
@@ -613,38 +676,46 @@
               <button disabled={!canEdit} on:click={() => stepTimeline(-1)}>-1s</button>
               <button disabled={!canEdit} on:click={() => stepTimeline(1)}>+1s</button>
               <button disabled={!canEdit} on:click={() => stepTimeline(5)}>+5s</button>
+              <span class="timeline-controls-divider" aria-hidden="true"></span>
+              <button disabled={timelineZoom <= MIN_TIMELINE_ZOOM} on:click={zoomTimelineOut}>−</button>
+              <span class="timeline-zoom-label">{Math.round(timelineZoom * 100)}%</span>
+              <button disabled={timelineZoom >= MAX_TIMELINE_ZOOM} on:click={zoomTimelineIn}>+</button>
             </div>
-            <div
-              aria-label="Video line position"
-              aria-valuemax={totalDuration}
-              aria-valuemin="0"
-              aria-valuenow={playheadTime}
-              aria-valuetext={`${formatTime(playheadTime)} / ${formatTime(totalDuration)}`}
-              bind:this={trackStrip}
-              class:scrubbing={isScrubbingTimeline}
-              class="track-strip"
-              on:keydown={handleTrackKeydown}
-              on:pointercancel={endTimelineScrub}
-              on:pointerdown={beginTimelineScrub}
-              on:pointermove={updateTimelineScrub}
-              on:pointerup={endTimelineScrub}
-              role="slider"
-              tabindex="0"
-            >
-              {#each clips as clip (clip.id)}
-                <div
-                  class="track-clip"
-                  class:selected={clip.id === selectedClipId}
-                  style={`flex: ${Math.max(clipDuration(clip), 0.2)} 1 0px`}
-                  title={clipTitle(clip)}
-                >
-                  <span>{clipName(clip)}</span>
-                  <small>{formatTime(clipDuration(clip))}</small>
-                </div>
-              {/each}
-              {#if clips.length > 0}
-                <div class="track-playhead" style={`left: ${playheadPercent}%`}></div>
-              {/if}
+            <div bind:this={trackViewport} class="track-viewport">
+              <div
+                aria-label="Video line position"
+                aria-valuemax={totalDuration}
+                aria-valuemin="0"
+                aria-valuenow={playheadTime}
+                aria-valuetext={`${formatTime(playheadTime)} / ${formatTime(totalDuration)}`}
+                bind:this={trackStrip}
+                class:scrubbing={isScrubbingTimeline}
+                class="track-strip"
+                on:keydown={handleTrackKeydown}
+                on:pointercancel={endTimelineScrub}
+                on:pointerdown={beginTimelineScrub}
+                on:pointermove={updateTimelineScrub}
+                on:pointerup={endTimelineScrub}
+                role="slider"
+                style={`width: ${timelineZoom * 100}%`}
+                tabindex="0"
+              >
+                {#each clips as clip, index (clip.id)}
+                  <div
+                    class="track-clip"
+                    class:selected={clip.id === selectedClipId}
+                    class:alt={index % 2 === 1}
+                    style={clipSegmentStyle(clip)}
+                    title={clipTitle(clip)}
+                  >
+                    <span>{clipName(clip)}</span>
+                    <small>{formatTime(clipDuration(clip))}</small>
+                  </div>
+                {/each}
+                {#if clips.length > 0}
+                  <div class="track-playhead" style={`left: ${playheadPercent}%`}></div>
+                {/if}
+              </div>
             </div>
           </div>
         </section>
@@ -675,19 +746,23 @@
               <span>Playhead</span>
               <input
                 disabled={!canEdit}
-                max={selectedClip.endTime}
-                min={selectedClip.startTime}
+                max={selectedClipFile
+                  ? toPresentationTime(selectedClip.endTime, selectedClipFile.videoStartTime)
+                  : selectedClip.endTime}
+                min={selectedClipFile
+                  ? toPresentationTime(selectedClip.startTime, selectedClipFile.videoStartTime)
+                  : selectedClip.startTime}
                 on:change={handlePlayheadInput}
                 step="0.001"
                 type="number"
-                value={currentTime.toFixed(3)}
+                value={presentationTime.toFixed(3)}
               />
             </label>
 
             <dl class="readout">
               <div><dt>Source</dt><dd>{selectedClipFile?.filename ?? 'Missing file'}</dd></div>
-              <div><dt>Start</dt><dd>{formatTime(selectedClip.startTime)}</dd></div>
-              <div><dt>End</dt><dd>{formatTime(selectedClip.endTime)}</dd></div>
+              <div><dt>Start</dt><dd>{selectedClipFile ? formatTime(toPresentationTime(selectedClip.startTime, selectedClipFile.videoStartTime)) : formatTime(selectedClip.startTime)}</dd></div>
+              <div><dt>End</dt><dd>{selectedClipFile ? formatTime(toPresentationTime(selectedClip.endTime, selectedClipFile.videoStartTime)) : formatTime(selectedClip.endTime)}</dd></div>
               <div><dt>Length</dt><dd>{formatTime(selectedClipDuration)}</dd></div>
             </dl>
 

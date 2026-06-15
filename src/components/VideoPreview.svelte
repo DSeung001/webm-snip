@@ -5,6 +5,7 @@
   export let src: string | null = null;
   export let currentTime = 0;
   export let duration = 0;
+  export let ignoreTimeUpdates = false;
 
   const dispatch = createEventDispatcher<{
     loaded: { duration: number };
@@ -21,6 +22,7 @@
   }
 
   function handleTimeUpdate() {
+    if (ignoreTimeUpdates) return;
     currentTime = video.currentTime;
     dispatch('time', { currentTime });
   }
