@@ -34,11 +34,6 @@
     }
   }
 
-  export function play() {
-    clearRangeTimer();
-    void video?.play();
-  }
-
   export function pause() {
     clearRangeTimer();
     video?.pause();

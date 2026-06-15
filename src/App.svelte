@@ -27,7 +27,15 @@
     id: number;
   };
 
+  type TimelineTick = {
+    time: number;
+    percent: number;
+    isMajor: boolean;
+    label: string | null;
+  };
+
   const MIN_CLIP_SECONDS = 0.08;
+  const TICK_STEP_CANDIDATES = [0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600, 1800, 3600];
   const MIN_TIMELINE_ZOOM = 1;
   const MAX_TIMELINE_ZOOM = 8;
 
@@ -67,6 +75,7 @@
     ? timelineTimeForClip(selectedClip, currentMediaTime)
     : 0;
   $: playheadPercent = totalDuration > 0 ? clampPercent((playheadTime / totalDuration) * 100) : 0;
+  $: timelineTicks = buildTimelineTicks(totalDuration, timelineZoom);
 
   function userMessage(error: unknown): string {
     const appError = error as AppError;
@@ -127,10 +136,6 @@
     return null;
   }
 
-  function sourceTimeFromPlayheadTime(time: number): number | null {
-    return findTimelineTarget(time)?.localTime ?? null;
-  }
-
   function clipSegmentStyle(clip: Clip): string {
     if (totalDuration <= 0) return 'left:0;width:0';
 
@@ -153,6 +158,71 @@
 
   function clampPercent(value: number): number {
     return Math.min(100, Math.max(0, value));
+  }
+
+  function pickTimelineMajorStep(duration: number, zoom: number): number {
+    if (duration <= 0) return 1;
+
+    const targetCount = Math.max(4, Math.min(48, 5 * zoom));
+    const idealStep = duration / targetCount;
+    return TICK_STEP_CANDIDATES.find((step) => step >= idealStep) ?? TICK_STEP_CANDIDATES.at(-1)!;
+  }
+
+  function minorDivisionsForStep(majorStep: number): number {
+    if (majorStep >= 60) return 6;
+    if (majorStep >= 10) return 5;
+    if (majorStep >= 2) return 4;
+    return 5;
+  }
+
+  function isMajorTickTime(time: number, majorStep: number): boolean {
+    const remainder = ((time % majorStep) + majorStep) % majorStep;
+    return remainder < 0.001 || Math.abs(remainder - majorStep) < 0.001;
+  }
+
+  function formatTickLabel(time: number, majorStep: number): string {
+    if (majorStep >= 60) {
+      const hours = Math.floor(time / 3600);
+      const minutes = Math.floor((time % 3600) / 60);
+      const seconds = Math.floor(time % 60);
+
+      if (hours > 0) {
+        return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      }
+
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    if (majorStep >= 1) {
+      return formatTime(time).slice(3, 12);
+    }
+
+    return formatTime(time);
+  }
+
+  function buildTimelineTicks(duration: number, zoom: number): TimelineTick[] {
+    if (duration <= 0) return [];
+
+    const majorStep = pickTimelineMajorStep(duration, zoom);
+    const minorStep = majorStep / minorDivisionsForStep(majorStep);
+    const tickCount = Math.ceil(duration / minorStep);
+    const ticks: TimelineTick[] = [];
+
+    for (let index = 0; index <= tickCount; index += 1) {
+      const time = Math.min(duration, Number((index * minorStep).toFixed(6)));
+      const isMajor = isMajorTickTime(time, majorStep);
+      const isEdge = time <= 0.001 || Math.abs(time - duration) < 0.001;
+      const label = isMajor && !isEdge ? formatTickLabel(time, majorStep) : null;
+
+      ticks.push({
+        time,
+        percent: clampPercent((time / duration) * 100),
+        isMajor,
+        label
+      });
+    }
+
+    return ticks;
   }
 
   function zoomTimelineIn() {
@@ -314,18 +384,8 @@
     }
   }
 
-  function seekPreview(time: number) {
-    const file = activeFile;
-    const duration = file?.duration ?? videoDuration;
-    const presentationTime = file ? toPresentationTime(time, file.videoStartTime) : time;
-    videoRef?.seek(clampTime(presentationTime, duration));
-  }
-
   function seekInsideSelectedClip(time: number) {
-    if (!selectedClip || !selectedClipFile) {
-      seekPreview(time);
-      return;
-    }
+    if (!selectedClip || !selectedClipFile) return;
 
     const safeMediaTime = clampClipTime(selectedClip, time);
     currentMediaTime = safeMediaTime;
@@ -441,7 +501,7 @@
       return;
     }
 
-    const splitTime = sourceTimeFromPlayheadTime(playheadTime) ?? currentMediaTime;
+    const splitTime = findTimelineTarget(playheadTime)?.localTime ?? currentMediaTime;
     const isInside =
       splitTime > selectedClip.startTime + MIN_CLIP_SECONDS &&
       splitTime < selectedClip.endTime - MIN_CLIP_SECONDS;
@@ -700,6 +760,19 @@
                 style={`width: ${timelineZoom * 100}%`}
                 tabindex="0"
               >
+                <div aria-hidden="true" class="track-ticks">
+                  {#each timelineTicks as tick (`${tick.time}-${tick.isMajor}`)}
+                    <div
+                      class="track-tick"
+                      class:major={tick.isMajor}
+                      style={`left: ${tick.percent}%`}
+                    >
+                      {#if tick.label}
+                        <span class="track-tick-label">{tick.label}</span>
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
                 {#each clips as clip, index (clip.id)}
                   <div
                     class="track-clip"

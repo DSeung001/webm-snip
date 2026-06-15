@@ -42,7 +42,7 @@ pub fn probe_media(path: String) -> AppResult<MediaInfo> {
     media_info_from_probe(&input, json)
 }
 
-pub fn media_info_from_probe(input: &PathBuf, json: Value) -> AppResult<MediaInfo> {
+fn media_info_from_probe(input: &PathBuf, json: Value) -> AppResult<MediaInfo> {
     let metadata = fs::metadata(input).map_err(AppError::permission_denied)?;
     let streams = json
         .get("streams")
