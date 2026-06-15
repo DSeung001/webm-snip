@@ -1,0 +1,11 @@
+FFmpeg and FFprobe are expected to be distributed as separate sidecar binaries.
+
+Before release, record:
+
+- Binary source URL
+- FFmpeg version
+- Configure flags
+- LGPL/GPL status
+- Required license files
+
+Prefer LGPL-compatible builds when possible.
