@@ -6,6 +6,7 @@ services:
     working_dir: /workspace
     volumes:
       - .:/workspace
+      - node-modules:/workspace/node_modules
       - pnpm-store:/root/.local/share/pnpm/store
       - cargo-registry:/usr/local/cargo/registry
       - cargo-git:/usr/local/cargo/git
@@ -19,6 +20,7 @@ services:
 
 volumes:
   pnpm-store:
+  node-modules:
   cargo-registry:
   cargo-git:
   target:

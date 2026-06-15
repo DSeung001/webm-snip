@@ -1,14 +1,12 @@
 export type AppStatus =
   | 'idle'
-  | 'loading_file'
-  | 'file_ready'
-  | 'invalid_selection'
-  | 'ready_to_export'
+  | 'loading'
+  | 'ready'
   | 'exporting'
-  | 'export_done'
+  | 'done'
   | 'error';
 
-export type CutMode = 'fast' | 'accurate';
+export type ExportMode = 'fast' | 'accurate';
 
 export type OpenFileResult = {
   path: string;
@@ -28,25 +26,24 @@ export type MediaInfo = {
   fps: number | null;
 };
 
-export type CutState = {
-  startTime: number | null;
-  endTime: number | null;
-  duration: number | null;
-};
-
-export type CutRequest = {
-  inputPath: string;
-  outputPath?: string | null;
+export type TimelineSegment = {
+  inputIndex: number;
   startTime: number;
   endTime: number;
-  mode: CutMode;
+};
+
+export type TimelineExportRequest = {
+  inputPaths: string[];
+  outputPath?: string | null;
+  segments: TimelineSegment[];
+  mode: ExportMode;
 };
 
 export type ExportResult = {
   outputPath: string;
   duration: number;
   sizeBytes: number;
-  mode: CutMode;
+  mode: ExportMode;
 };
 
 export type AppError = {

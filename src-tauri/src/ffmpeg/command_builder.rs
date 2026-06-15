@@ -4,7 +4,7 @@ use std::{
     process::Command,
 };
 
-use crate::models::{AppError, AppResult, CutMode};
+use crate::models::{AppError, AppResult, ExportMode};
 
 pub fn ffmpeg_command() -> AppResult<Command> {
     command("WEBM_SNIP_FFMPEG", "ffmpeg").ok_or_else(AppError::ffmpeg_not_found)
@@ -14,12 +14,12 @@ pub fn ffprobe_command() -> AppResult<Command> {
     command("WEBM_SNIP_FFPROBE", "ffprobe").ok_or_else(AppError::ffprobe_not_found)
 }
 
-pub fn build_cut_args(
+pub fn build_segment_args(
     input: &Path,
     output: &Path,
     start: f64,
     duration: f64,
-    mode: CutMode,
+    mode: ExportMode,
 ) -> Vec<String> {
     let mut args = vec![
         "-hide_banner".to_string(),
@@ -36,11 +36,11 @@ pub fn build_cut_args(
     ];
 
     match mode {
-        CutMode::Fast => {
+        ExportMode::Fast => {
             args.push("-c".to_string());
             args.push("copy".to_string());
         }
-        CutMode::Accurate => {
+        ExportMode::Accurate => {
             args.push("-c:v".to_string());
             args.push("libvpx-vp9".to_string());
             args.push("-c:a".to_string());

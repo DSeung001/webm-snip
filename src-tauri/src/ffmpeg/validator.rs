@@ -34,7 +34,7 @@ pub fn ensure_output_path(input: &Path, output: &Path) -> AppResult<()> {
     if output.exists() {
         return Err(AppError::with_detail(
             "OUTPUT_ALREADY_EXISTS",
-            "같은 이름의 파일이 이미 있습니다.",
+            "A file with this name already exists.",
             output.display(),
         ));
     }

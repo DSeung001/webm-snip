@@ -1,6 +1,8 @@
 # WebM Snip
 
-WebM Snip is a lightweight local desktop cutter for WebM ㅊ flow:
+WebM Snip is a lightweight local desktop cutter for WebM screen recordings.
+
+Core flow:
 
 ```txt
 Open -> Mark -> Cut
@@ -21,14 +23,31 @@ Install dependencies on the host:
 
 ```bash
 pnpm install
-pnpm tauri:dev
+pnpm tauri:dev:mac
 ```
 
-For local development without bundled sidecars, install FFmpeg on `PATH` or set:
+On macOS, the dedicated script checks Rust, pnpm, FFmpeg, FFprobe, and the
+macOS Tauri CLI native binding before starting desktop development mode.
+
+If FFmpeg is not installed:
+
+```bash
+brew install ffmpeg
+```
+
+For local development without bundled sidecars, keep FFmpeg on `PATH` or set:
 
 ```bash
 export WEBM_SNIP_FFMPEG=/path/to/ffmpeg
 export WEBM_SNIP_FFPROBE=/path/to/ffprobe
+```
+
+If `tauri dev` reports a missing native binding after using Docker, repair the
+host install once:
+
+```bash
+pnpm install --force
+pnpm tauri:dev:mac
 ```
 
 ## Docker Development
@@ -45,6 +64,9 @@ This starts the Vite dev server at `http://localhost:1420`.
 Tauri desktop windows are best run on the host for macOS/Windows packaging. The
 container is intended for isolated web UI development, dependency checks, and
 Linux-oriented build validation.
+
+Docker uses its own `node_modules` volume so Linux-only optional dependencies do
+not overwrite the macOS host install.
 
 ## FFmpeg Sidecars
 

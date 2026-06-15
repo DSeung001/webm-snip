@@ -28,47 +28,43 @@ impl AppError {
     }
 
     pub fn invalid_file_type() -> Self {
-        Self::new("INVALID_FILE_TYPE", "WebM 파일만 열 수 있습니다.")
+        Self::new("INVALID_FILE_TYPE", "Only WebM files can be opened.")
     }
 
     pub fn file_not_found() -> Self {
-        Self::new("FILE_NOT_FOUND", "파일을 찾을 수 없습니다.")
+        Self::new("FILE_NOT_FOUND", "File not found.")
     }
 
     pub fn invalid_cut_range() -> Self {
-        Self::new("INVALID_CUT_RANGE", "시작점과 끝점을 다시 확인해 주세요.")
+        Self::new("INVALID_CUT_RANGE", "Check the selected range.")
     }
 
     pub fn output_path_invalid() -> Self {
-        Self::new("OUTPUT_PATH_INVALID", "저장 위치가 올바르지 않습니다.")
+        Self::new("OUTPUT_PATH_INVALID", "The output path is not valid.")
     }
 
     pub fn ffmpeg_not_found() -> Self {
         Self::new(
             "FFMPEG_NOT_FOUND",
-            "영상 처리 모듈을 찾을 수 없습니다. 앱을 다시 설치해 주세요.",
+            "The video processing module was not found. Reinstall the app.",
         )
     }
 
     pub fn ffprobe_not_found() -> Self {
         Self::new(
             "FFPROBE_NOT_FOUND",
-            "영상 분석 모듈을 찾을 수 없습니다. 앱을 다시 설치해 주세요.",
+            "The video analysis module was not found. Reinstall the app.",
         )
     }
 
     pub fn ffmpeg_failed(detail: impl ToString) -> Self {
-        Self::with_detail(
-            "FFMPEG_FAILED",
-            "영상 자르기에 실패했습니다. 정확하게 자르기로 다시 시도해 주세요.",
-            detail,
-        )
+        Self::with_detail("FFMPEG_FAILED", "Export failed. Try Accurate mode.", detail)
     }
 
     pub fn ffprobe_failed(detail: impl ToString) -> Self {
         Self::with_detail(
             "FFPROBE_FAILED",
-            "영상 정보를 읽지 못했습니다. 다른 WebM 파일로 다시 시도해 주세요.",
+            "Could not read video info. Try another WebM file.",
             detail,
         )
     }
@@ -76,7 +72,7 @@ impl AppError {
     pub fn permission_denied(detail: impl ToString) -> Self {
         Self::with_detail(
             "PERMISSION_DENIED",
-            "이 위치에 파일을 저장할 권한이 없습니다.",
+            "Permission denied for this file location.",
             detail,
         )
     }

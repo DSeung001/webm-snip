@@ -7,8 +7,11 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
+    "icons": "node scripts/generate-icons.mjs",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
+    "tauri:dev:mac": "sh scripts/dev-mac.sh",
+    "tauri:info": "tauri info",
     "tauri:build": "tauri build",
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },

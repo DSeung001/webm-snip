@@ -33,19 +33,22 @@
   }
 
   export function play() {
+    clearRangeTimer();
     void video?.play();
   }
 
   export function pause() {
+    clearRangeTimer();
     video?.pause();
   }
 
   export function togglePlay() {
     if (!video) return;
     if (video.paused) {
+      clearRangeTimer();
       void video.play();
     } else {
-      video.pause();
+      pause();
     }
   }
 

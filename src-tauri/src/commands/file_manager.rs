@@ -10,26 +10,31 @@ use crate::{
 };
 
 #[tauri::command]
-pub fn open_webm_file() -> AppResult<Option<OpenFileResult>> {
-    let Some(path) = rfd::FileDialog::new()
+pub fn open_webm_files() -> AppResult<Vec<OpenFileResult>> {
+    let Some(paths) = rfd::FileDialog::new()
         .add_filter("WebM", &["webm"])
-        .pick_file()
+        .pick_files()
     else {
-        return Ok(None);
+        return Ok(Vec::new());
     };
 
-    ensure_input_file(&path)?;
-    let metadata = fs::metadata(&path).map_err(AppError::permission_denied)?;
+    paths
+        .into_iter()
+        .map(|path| {
+            ensure_input_file(&path)?;
+            let metadata = fs::metadata(&path).map_err(AppError::permission_denied)?;
 
-    Ok(Some(OpenFileResult {
-        path: path.to_string_lossy().to_string(),
-        name: path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("video.webm")
-            .to_string(),
-        size_bytes: metadata.len(),
-    }))
+            Ok(OpenFileResult {
+                path: path.to_string_lossy().to_string(),
+                name: path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .unwrap_or("video.webm")
+                    .to_string(),
+                size_bytes: metadata.len(),
+            })
+        })
+        .collect()
 }
 
 #[tauri::command]

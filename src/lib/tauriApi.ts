@@ -1,12 +1,12 @@
 import { convertFileSrc, invoke } from '@tauri-apps/api/core';
-import type { CutRequest, ExportResult, MediaInfo, OpenFileResult } from './types';
+import type { ExportResult, MediaInfo, OpenFileResult, TimelineExportRequest } from './types';
 
 export function toVideoSrc(path: string): string {
   return convertFileSrc(path);
 }
 
-export function openWebMFile(): Promise<OpenFileResult | null> {
-  return invoke('open_webm_file');
+export function openWebMFiles(): Promise<OpenFileResult[]> {
+  return invoke('open_webm_files');
 }
 
 export function probeMedia(path: string): Promise<MediaInfo> {
@@ -21,8 +21,8 @@ export function chooseSavePath(defaultPath: string): Promise<string | null> {
   return invoke('choose_save_path', { defaultPath });
 }
 
-export function cutWebM(request: CutRequest): Promise<ExportResult> {
-  return invoke('cut_webm', { request });
+export function exportTimeline(request: TimelineExportRequest): Promise<ExportResult> {
+  return invoke('export_timeline', { request });
 }
 
 export function openFile(path: string): Promise<void> {
