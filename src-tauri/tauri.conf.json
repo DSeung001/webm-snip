@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "pnpm build",
+    "beforeBuildCommand": "pnpm build && node scripts/prepare-ffmpeg-sidecars.mjs",
     "frontendDist": "../dist"
   },
   "app": {
@@ -34,6 +34,7 @@
     "category": "Utility",
     "shortDescription": "Cut WebM clips locally.",
     "longDescription": "A lightweight local WebM cutter for screen recordings.",
-    "icon": ["icons/icon.png"]
+    "icon": ["icons/icon.png"],
+    "externalBin": ["binaries/ffmpeg", "binaries/ffprobe"]
   }
 }

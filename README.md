@@ -70,13 +70,29 @@ not overwrite the macOS host install.
 
 ## FFmpeg Sidecars
 
-Put release binaries in `src-tauri/binaries` using the names documented in
-`src-tauri/binaries/README.md`.
+Release builds bundle FFmpeg and FFprobe automatically.
 
-When release binaries are present, add Tauri `bundle.externalBin` entries for
-`binaries/ffmpeg` and `binaries/ffprobe` before packaging. The entries are not
-enabled in this repository yet because Tauri fails the build if the binaries are
-missing.
+Before `pnpm tauri:build`, the prepare script copies local binaries into
+`src-tauri/binaries` using Tauri sidecar names such as
+`ffmpeg-aarch64-apple-darwin` and `ffprobe-aarch64-apple-darwin`.
+
+Install FFmpeg on the build machine first:
+
+```bash
+brew install ffmpeg
+pnpm tauri:build
+```
+
+You can also point to custom binaries:
+
+```bash
+export WEBM_SNIP_FFMPEG=/path/to/ffmpeg
+export WEBM_SNIP_FFPROBE=/path/to/ffprobe
+pnpm tauri:build
+```
+
+For local development without bundled sidecars, keep FFmpeg on `PATH` or set the
+environment variables above and run `pnpm tauri:dev:mac`.
 
 ## v0.1 Scope
 

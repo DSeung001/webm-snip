@@ -12,7 +12,7 @@
     "tauri:dev": "tauri dev",
     "tauri:dev:mac": "sh scripts/dev-mac.sh",
     "tauri:info": "tauri info",
-    "tauri:build": "tauri build",
+    "tauri:build": "node scripts/prepare-ffmpeg-sidecars.mjs && tauri build",
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {

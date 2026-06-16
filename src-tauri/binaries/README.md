@@ -1,8 +1,8 @@
 # FFmpeg Sidecars
 
-Place release FFmpeg and FFprobe sidecar binaries here before packaging.
+Release builds bundle FFmpeg and FFprobe through Tauri `externalBin`.
 
-Expected names:
+The prepare script writes platform-specific names here before packaging:
 
 - `ffmpeg-x86_64-pc-windows-msvc.exe`
 - `ffprobe-x86_64-pc-windows-msvc.exe`

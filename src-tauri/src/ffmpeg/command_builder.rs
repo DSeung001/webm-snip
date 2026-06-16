@@ -93,18 +93,19 @@ fn sidecar_candidates(base_name: &str) -> Vec<PathBuf> {
     let mut candidates = Vec::new();
 
     if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
-        candidates.push(
-            PathBuf::from(manifest_dir)
-                .join("binaries")
-                .join(&binary_name),
-        );
+        let binaries_dir = PathBuf::from(manifest_dir).join("binaries");
+        candidates.push(binaries_dir.join(&binary_name));
+        candidates.push(binaries_dir.join(base_name));
     }
 
     if let Ok(exe) = env::current_exe() {
         if let Some(exe_dir) = exe.parent() {
             candidates.push(exe_dir.join(&binary_name));
+            candidates.push(exe_dir.join(base_name));
             candidates.push(exe_dir.join("../Resources").join(&binary_name));
+            candidates.push(exe_dir.join("../Resources").join(base_name));
             candidates.push(exe_dir.join("resources").join(&binary_name));
+            candidates.push(exe_dir.join("resources").join(base_name));
         }
     }
 
